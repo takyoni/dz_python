@@ -1,7 +1,7 @@
 """Трекер домашней библиотеки.
 
-Задание 1: осознанный выбор коллекций (list / tuple / dict / set).
-Обоснование выбора — в README.md рядом с этим файлом.
+Задание 1: выбор коллекций (list / tuple / dict / set).
+Почему выбрал именно так - в README.txt рядом.
 """
 
 from __future__ import annotations
@@ -9,39 +9,37 @@ from __future__ import annotations
 import copy
 from typing import Iterable, Iterator
 
-# Одна запись о книге — кортеж фиксированной структуры:
-# (book_id, title, year). Индексы полей вынесены в константы,
-# чтобы не было "магических" чисел в коде.
+# Одна книга - это кортеж (id, title, year).
+# Номера полей вынес в константы, чтобы не писать book[2] и не путаться.
 ID, TITLE, YEAR = 0, 1, 2
 
 Book = tuple[int, str, int]
 
 
 class Library:
-    """Хранилище книг: список записей + индекс по id + множество жанров."""
+    """Книги в списке + словарь для поиска по id + множество жанров."""
 
     def __init__(self, books: Iterable[Book] | None = None) -> None:
-        # Значение по умолчанию — None, а не [] или {}:
-        # изменяемый объект в сигнатуре создаётся один раз при определении
-        # функции и был бы общим для всех экземпляров Library.
+        # По умолчанию None, а не [] - иначе один список был бы общим
+        # для всех объектов Library.
         self._books: list[Book] = list(books) if books is not None else []
-        # dict: id -> запись, чтобы искать за O(1), а не пробегать список.
+        # Словарь id -> книга, чтобы не перебирать список при каждом поиске.
         self._by_id: dict[int, Book] = {book[ID]: book for book in self._books}
-        # set: жанры, у которых важен только факт наличия, без порядка и повторов.
+        # Жанры - множество: нужен только факт "есть/нет", без повторов.
         self._genres: set[str] = set()
 
-    # --- изменение состояния -------------------------------------------------
+    # --- добавление / удаление ---------------------------------------------
 
     def add(self, book_id: int, title: str, year: int, genres: Iterable[str] = ()) -> Book:
-        """Добавить книгу. Возвращает созданную запись."""
+        """Добавить книгу и вернуть её."""
         if book_id in self._by_id:
             raise ValueError(f"книга с id={book_id} уже есть")
 
         book: Book = (book_id, title, year)
         self._books.append(book)
         self._by_id[book_id] = book
-        # Кортеж неизменяем, поэтому одна и та же запись спокойно лежит
-        # и в списке, и в словаре: "поменять" её через одну ссылку нельзя.
+        # Кортеж менять нельзя, поэтому не страшно, что одна и та же книга
+        # лежит и в списке, и в словаре.
         self._genres.update(genres)
         return book
 
@@ -54,9 +52,8 @@ class Library:
         return book
 
     def remove_older_than(self, year: int) -> list[Book]:
-        """Удалить все книги старше указанного года."""
-        # Список не изменяется во время прохода по нему: сначала собираем
-        # то, что уходит, затем пересобираем список целиком.
+        """Удалить книги старше указанного года."""
+        # Не удаляю из списка пока иду по нему - собираю новый.
         dropped = [book for book in self._books if book[YEAR] < year]
         self._books = [book for book in self._books if book[YEAR] >= year]
         for book in dropped:
@@ -66,27 +63,26 @@ class Library:
     # --- чтение --------------------------------------------------------------
 
     def get(self, book_id: int) -> Book | None:
-        """Быстрый поиск по ключу."""
+        """Найти книгу по id."""
         return self._by_id.get(book_id)
 
     def all_books(self) -> list[Book]:
-        """Копия списка записей.
+        """Копия списка книг.
 
-        Возвращаем именно копию: иначе вызывающий код получил бы алиас
-        внутреннего списка и мог бы менять состояние библиотеки в обход методов.
+        Отдаю копию, а не сам список - иначе снаружи можно было бы
+        поменять библиотеку в обход методов.
         """
         return list(self._books)
 
     def genres(self) -> set[str]:
-        """Копия множества жанров — по той же причине, что и all_books()."""
+        """Копия множества жанров, по той же причине."""
         return set(self._genres)
 
     def titles_by_year(self) -> dict[int, list[str]]:
-        """Сгруппировать названия по году издания."""
+        """Названия книг по годам."""
         grouped: dict[int, list[str]] = {}
         for book in self._books:
-            # setdefault создаёт новый список под каждый год,
-            # а не переиспользует один общий.
+            # setdefault заводит отдельный список под каждый год.
             grouped.setdefault(book[YEAR], []).append(book[TITLE])
         return grouped
 
@@ -98,7 +94,7 @@ class Library:
 
 
 def merge_shelves(first: Library, second: Library) -> Library:
-    """Собрать новую библиотеку из двух, не трогая исходные."""
+    """Склеить две библиотеки в новую, исходные не трогаем."""
     merged = Library(first.all_books())
     for book in second:
         if merged.get(book[ID]) is None:
@@ -117,16 +113,16 @@ def main() -> None:
     print("Жанры:", sorted(library.genres()))
     print("По годам:", library.titles_by_year())
 
-    # Изменение копии не задевает саму библиотеку.
+    # Меняем копию - библиотека не меняется.
     snapshot = library.all_books()
     snapshot.append((99, "Подделка", 2024))
     print("После правки копии в библиотеке по-прежнему:", len(library), "книг")
 
     dropped = library.remove_older_than(1960)
-    print("Убрали старьё:", dropped)
+    print("Убрали старые:", dropped)
     print("Осталось:", library.all_books())
 
-    # Вложенные структуры копируем глубоко, если нужна независимая версия.
+    # Для вложенных структур нужен deepcopy, иначе внутренние списки общие.
     grouped = library.titles_by_year()
     grouped_backup = copy.deepcopy(grouped)
     grouped_backup[1965].append("случайно дописали")
