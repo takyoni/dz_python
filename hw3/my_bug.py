@@ -1,10 +1,10 @@
-"""Задание 2: собственный баг-репорт (изменяемость / hashable)."""
+"""Задание 2: мой баг про изменяемость и hashable."""
 
-# --- 1. Багованный код ------------------------------------------------------
+# --- 1. Код с багом
 
 
 class Tag:
-    """Тег книги. Хеш считается по изменяемому полю name."""
+    """Тег книги. Хеш считается по полю name, а name можно менять."""
 
     def __init__(self, name: str) -> None:
         self.name = name
@@ -19,33 +19,33 @@ class Tag:
 def run_buggy() -> None:
     counters = {Tag("proza"): 12}
     tag = next(iter(counters))
-    tag.name = "poetry"  # опечатку "исправили" уже после вставки в словарь
+    tag.name = "poetry"  # заметил опечатку и поправил прямо в ключе
 
-    print("ключей в словаре:", len(counters))          # 1
-    print("ищем Tag('poetry'):", Tag("poetry") in counters)  # False
-    print("ищем Tag('proza'):", Tag("proza") in counters)    # тоже False
+    print("ключей в словаре:", len(counters))                 # 1
+    print("ищем Tag('poetry'):", Tag("poetry") in counters)   # False
+    print("ищем Tag('proza'):", Tag("proza") in counters)     # тоже False
     print("а перебором он есть:", [t.name for t in counters])  # ['poetry']
 
 
-# --- 2. Что происходит и почему --------------------------------------------
+# --- 2. Что пошло не так 
 #
-# Объект Tag формально hashable (у него есть __hash__), но его хеш зависит от
-# изменяемого атрибута name. Словарь разложил ключ по корзине в момент вставки
-# по hash("proza") и больше эту корзину не пересчитывает, поэтому после правки
-# name ключ лежит "не в своей" корзине: по новому значению поиск идёт в другую
-# корзину и ничего не находит, а по старому — находит корзину, но не проходит
-# сравнение __eq__. Ключ становится недостижим по любому запросу, хотя при
-# переборе словаря он прекрасно виден.
+# У Tag есть __hash__, так что словарь его принимает. Но хеш зависит от name,
+# а name потом поменяли. Словарь положил ключ в корзину по hash("proza") и
+# после этого ничего не пересчитывает. В итоге:
+#  - ищем по "poetry" -> идём в другую корзину, там пусто;
+#  - ищем по "proza"  -> корзина та, но __eq__ сравнивает "proza" с "poetry"
+#    и говорит нет.
+# Ключ в словаре есть (видно при переборе), но достать его уже никак.
 
 
-# --- 3. Исправленная версия -------------------------------------------------
+# --- 3. Как починил
 
 from dataclasses import dataclass
 
 
 @dataclass(frozen=True)
 class FrozenTag:
-    """Тот же тег, но неизменяемый: hash навсегда согласован с полем name."""
+    """Тот же тег, но менять его нельзя, поэтому хеш не разъедется с name."""
 
     name: str
 
@@ -53,18 +53,18 @@ class FrozenTag:
 def run_fixed() -> None:
     counters = {FrozenTag("proza"): 12}
 
-    # Переименование — это создание нового ключа и явный перенос значения,
-    # а не тихая правка объекта внутри словаря.
+    # Переименовать = завести новый ключ и перенести в него значение.
+    # Старый объект не трогаем.
     old = FrozenTag("proza")
     new = FrozenTag("poetry")
     counters[new] = counters.pop(old)
 
-    print("ключей в словаре:", len(counters))                 # 1
-    print("ищем FrozenTag('poetry'):", new in counters)       # True
-    print("ищем FrozenTag('proza'):", old in counters)        # False, и это честно
-    print("перебором:", [t.name for t in counters])           # ['poetry']
+    print("ключей в словаре:", len(counters))            # 1
+    print("ищем FrozenTag('poetry'):", new in counters)  # True
+    print("ищем FrozenTag('proza'):", old in counters)   # False, так и должно быть
+    print("перебором:", [t.name for t in counters])      # ['poetry']
 
-    # Попытка испортить ключ теперь падает сразу, а не портит словарь молча:
+    # Если попробовать поменять ключ, упадёт сразу, а не сломает словарь тихо.
     try:
         new.name = "drama"
     except AttributeError as exc:
@@ -72,7 +72,7 @@ def run_fixed() -> None:
 
 
 if __name__ == "__main__":
-    print("--- багованная версия ---")
+    print("--- версия с багом ---")
     run_buggy()
     print("\n--- исправленная версия ---")
     run_fixed()
