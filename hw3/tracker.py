@@ -28,7 +28,7 @@ class Library:
         # Жанры - множество: нужен только факт "есть/нет", без повторов.
         self._genres: set[str] = set()
 
-    # --- добавление / удаление ---------------------------------------------
+    # добавление/удаление
 
     def add(self, book_id: int, title: str, year: int, genres: Iterable[str] = ()) -> Book:
         """Добавить книгу и вернуть её."""
@@ -60,7 +60,7 @@ class Library:
             del self._by_id[book[ID]]
         return dropped
 
-    # --- чтение --------------------------------------------------------------
+    # чтение
 
     def get(self, book_id: int) -> Book | None:
         """Найти книгу по id."""
